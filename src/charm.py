@@ -62,4 +62,3 @@ class BooCharm(ops.CharmBase):
 
 if __name__ == "__main__":  # pragma: nocover
     ops.main(BooCharm)
-

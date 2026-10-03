@@ -35,33 +35,22 @@ jobs:
       - name: Upload charm to latest/edge
         run: |
           set -euo pipefail
-          CHARM_NAME=$(yq -e '.name' charmcraft.yaml)
 
-          # Reuse the latest revision of each resource from Charmhub.
-          # Fail if a resource has no revision.
-          RESOURCE_FLAGS=()
-          mapfile -t RESOURCES < <(
-            # The resources map, or an empty map if the charm has none.
-            yq '.resources // {}' charmcraft.yaml |
-            # One resource name per line.
-            yq 'keys | .[]'
-          )
+          # Latest uploaded revisions of the resource, as JSON
+          revisions=$(charmcraft resource-revisions boo demo-server-image --format json)
 
-          for resource in "${RESOURCES[@]}"; do
-            # All uploaded revisions of this resource.
-            revisions=$(charmcraft resource-revisions "$CHARM_NAME" "$resource" --format json)
-            # Highest revision number, empty if there is none.
-            rev=$(echo "$revisions" | jq -r 'map(.revision) | max // empty')
-            if [ -z "$rev" ]; then
-              echo "No revision found for resource '$resource' of '$CHARM_NAME'. Upload one with 'charmcraft upload-resource' first."
-              exit 1
-            fi
-            echo "Using $resource revision $rev"
-            RESOURCE_FLAGS+=(--resource "$resource:$rev")
-          done
+          # Highest revision number, empty if none has been uploaded
+          rev=$(echo "$revisions" | jq -r 'map(.revision) | max // empty')
+
+          # Fail if the resource has no revision: the charm can't be released without it
+          if [ -z "$rev" ]; then
+            echo "::error::No revision found for resource 'demo-server-image'. Upload one with 'charmcraft upload-resource' first."
+            exit 1
+          fi
+          echo "Using demo-server-image revision $rev"
 
           for charm in *.charm; do
-            charmcraft upload "$charm" --release latest/edge "${RESOURCE_FLAGS[@]}"
+            charmcraft upload "$charm" --release latest/edge --resource demo-server-image:"$rev"
           done
         env:
           CHARMCRAFT_AUTH: ${{ secrets.CHARMHUB_TOKEN }}

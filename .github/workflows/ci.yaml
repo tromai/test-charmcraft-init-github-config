@@ -46,3 +46,9 @@ jobs:
     name: Integration Tests
     needs: [lint, unit]
     uses: $/.github/workflows/integration.yaml
+
+  publish:
+    name: Publish
+    needs: [integration]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: $/.github/workflows/publish.yaml

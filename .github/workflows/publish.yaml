@@ -1,9 +1,8 @@
 name: Publish to edge
 
 on:
-  push:
-    branches:
-      - "main"
+  workflow_call:
+  workflow_dispatch:
 
 permissions: {}
 
@@ -34,15 +33,23 @@ jobs:
           set -euo pipefail
           CHARM_NAME=$(yq -e '.name' charmcraft.yaml)
 
-          # Reuse the latest revision of each resource already uploaded to Charmhub.
-          # Fail if a resource has no revision: upload it once manually with
-          # `charmcraft upload-resource`.
+          # Reuse the latest revision of each resource from Charmhub.
+          # Fail if a resource has no revision.
           RESOURCE_FLAGS=()
-          mapfile -t RESOURCES < <(yq '(.resources // {}) | keys | .[]' charmcraft.yaml)
+          mapfile -t RESOURCES < <(
+            # The resources map, or an empty map if the charm has none.
+            yq '.resources // {}' charmcraft.yaml |
+            # One resource name per line.
+            yq 'keys | .[]'
+          )
+
           for resource in "${RESOURCES[@]}"; do
-            rev=$(charmcraft resource-revisions "$CHARM_NAME" "$resource" --format json | jq -r 'map(.revision) | max // empty')
+            # All uploaded revisions of this resource.
+            revisions=$(charmcraft resource-revisions "$CHARM_NAME" "$resource" --format json)
+            # Highest revision number, empty if there is none.
+            rev=$(echo "$revisions" | jq -r 'map(.revision) | max // empty')
             if [ -z "$rev" ]; then
-              echo "::error::No revision found for resource '$resource' of '$CHARM_NAME'. Upload one with 'charmcraft upload-resource' first."
+              echo "No revision found for resource '$resource' of '$CHARM_NAME'. Upload one with 'charmcraft upload-resource' first."
               exit 1
             fi
             echo "Using $resource revision $rev"

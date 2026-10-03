@@ -2,6 +2,9 @@ name: Publish to edge
 
 on:
   workflow_call:
+    secrets:
+      CHARMHUB_TOKEN:
+        required: true
   workflow_dispatch:
 
 permissions: {}
@@ -10,6 +13,7 @@ jobs:
   publish-edge:
     name: Publish to latest/edge
     runs-on: ubuntu-latest
+    # Required to access secrets.CHARMHUB_TOKEN
     environment: publish
     steps:
       - name: Checkout repository
